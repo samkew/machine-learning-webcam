@@ -1,3 +1,41 @@
+<style>
+	body {
+		font-family: system-ui, sans-serif;
+		margin: 1rem;
+	}
+	.prediction-row {
+		margin-bottom: 0.75rem;
+		max-width: 320px;
+	}
+	.prediction-meta {
+		display: flex;
+		justify-content: space-between;
+		align-items: baseline;
+		gap: 0.5rem;
+		margin-bottom: 0.35rem;
+		font-size: 0.875rem;
+	}
+	.class-name {
+		font-weight: 600;
+	}
+	.class-probability {
+		font-variant-numeric: tabular-nums;
+		opacity: 0.85;
+	}
+	.progress-track {
+		height: 10px;
+		background: #e5e7eb;
+		border-radius: 9999px;
+		overflow: hidden;
+	}
+	.progress-fill {
+		height: 100%;
+		width: 0%;
+		border-radius: 9999px;
+		transition: width 0.1s ease-out;
+		min-width: 0;
+	}
+</style>
 <div>Teachable Machine Image Model</div>
 <button type="button" onclick="init()">Start</button>
 <div id="webcam-container"></div>
@@ -5,55 +43,89 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 <script type="text/javascript">
-    // More API functions here:
-    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+	// More API functions here:
+	// https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
 
-    // the link to your model provided by Teachable Machine export panel
-    const URL = "my_model/";
+	// the link to your model provided by Teachable Machine export panel
+	const URL = "my_model/";
+	const PROGRESS_COLORS = ["#6366f1", "#0ea5e9", "#059669"];
 
-    let model, webcam, labelContainer, maxPredictions;
+	let model, webcam, labelContainer, maxPredictions;
 
-    // Load the image model and setup the webcam
-    async function init() {
-        const modelURL = URL + "model.json";
-        const metadataURL = URL + "metadata.json";
+	// Load the image model and setup the webcam
+	async function init() {
+		const modelURL = URL + "model.json";
+		const metadataURL = URL + "metadata.json";
 
-        // load the model and metadata
-        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
-        // or files from your local hard drive
-        // Note: the pose library adds "tmImage" object to your window (window.tmImage)
-        model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
+		// load the model and metadata
+		// Refer to tmImage.loadFromFiles() in the API to support files from a file picker
+		// or files from your local hard drive
+		// Note: the pose library adds "tmImage" object to your window (window.tmImage)
+		model = await tmImage.load(modelURL, metadataURL);
+		maxPredictions = model.getTotalClasses();
 
-        // Convenience function to setup a webcam
-        const flip = true; // whether to flip the webcam
-        webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
-        await webcam.setup(); // request access to the webcam
-        await webcam.play();
-        window.requestAnimationFrame(loop);
+		// Convenience function to setup a webcam
+		const flip = true; // whether to flip the webcam
+		webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
+		await webcam.setup(); // request access to the webcam
+		await webcam.play();
+		window.requestAnimationFrame(loop);
 
-        // append elements to the DOM
-        document.getElementById("webcam-container").appendChild(webcam.canvas);
-        labelContainer = document.getElementById("label-container");
-        for (let i = 0; i < maxPredictions; i++) { // and class labels
-            labelContainer.appendChild(document.createElement("div"));
-        }
-    }
+		// append elements to the DOM
+		document.getElementById("webcam-container").appendChild(webcam.canvas);
+		labelContainer = document.getElementById("label-container");
+		labelContainer.replaceChildren();
 
-    async function loop() {
-        webcam.update(); // update the webcam frame
-        await predict();
-        window.requestAnimationFrame(loop);
-    }
+		for (let i = 0; i < maxPredictions; i++) {
+			const row = document.createElement("div");
+			row.className = "prediction-row";
+			const trackColor = PROGRESS_COLORS[i % PROGRESS_COLORS.length];
+			row.innerHTML =
+				'<div class="prediction-meta">' +
+				'<span class="class-name"></span>' +
+				'<span class="class-probability"></span>' +
+				"</div>" +
+				'<div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">' +
+				'<div class="progress-fill"></div>' +
+				"</div>";
 
-    // run the webcam image through the image model
-    async function predict() {
-        // predict can take in an image, video or canvas html element
-        const prediction = await model.predict(webcam.canvas);
-        for (let i = 0; i < maxPredictions; i++) {
-            const classPrediction =
-                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
-            labelContainer.childNodes[i].innerHTML = classPrediction;
-        }
-    }
+			const fill = row.querySelector(".progress-fill");
+			fill.style.background = trackColor;
+
+			labelContainer.appendChild(row);
+		}
+	}
+
+	async function loop() {
+		webcam.update(); // update the webcam frame
+		await predict();
+		window.requestAnimationFrame(loop);
+	}
+
+	// run the webcam image through the image model
+	async function predict() {
+		// predict can take in an image, video or canvas html element
+		const prediction = await model.predict(webcam.canvas);
+
+		const rows = labelContainer.children;
+		for (let i = 0; i < maxPredictions; i++) {
+			const row = rows[i];
+			const prob = prediction[i].probability;
+			const pct = prob * 100;
+
+			row.querySelector(".class-name").textContent =
+				prediction[i].className;
+			row.querySelector(".class-probability").textContent =
+				prediction[i].probability.toFixed(2);
+
+			const track = row.querySelector(".progress-track");
+			const fill = row.querySelector(".progress-fill");
+			fill.style.width = pct + "%";
+			track.setAttribute("aria-valuenow", String(Math.round(pct)));
+			track.setAttribute(
+				"aria-label",
+				prediction[i].className + ": " + prob.toFixed(2)
+			);
+		}
+	}
 </script>
