@@ -1,42 +1,119 @@
-<style>
-	body {
-		font-family: system-ui, sans-serif;
-		margin: 1rem;
-	}
-	.prediction-row {
-		margin-bottom: 0.75rem;
-		max-width: 320px;
-	}
-	.prediction-meta {
-		display: flex;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: 0.5rem;
-		margin-bottom: 0.35rem;
-		font-size: 0.875rem;
-	}
-	.class-name {
-		font-weight: 600;
-	}
-	.class-probability {
-		font-variant-numeric: tabular-nums;
-		opacity: 0.85;
-	}
-	.progress-track {
-		height: 10px;
-		background: #e5e7eb;
-		border-radius: 9999px;
-		overflow: hidden;
-	}
-	.progress-fill {
-		height: 100%;
-		width: 0%;
-		border-radius: 9999px;
-		transition: width 0.1s ease-out;
-		min-width: 0;
-	}
-</style>
-<div>Teachable Machine Image Model</div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<title>Teachable Machine</title>
+	<style>
+		*,
+		*::before,
+		*::after {
+			box-sizing: border-box;
+		}
+
+		html {
+			-webkit-text-size-adjust: 100%;
+		}
+
+		body {
+			font-family: system-ui, sans-serif;
+			margin: 0;
+			padding:
+				max(1rem, env(safe-area-inset-top, 0))
+				max(1rem, env(safe-area-inset-right, 0))
+				max(1.25rem, env(safe-area-inset-bottom, 0))
+				max(1rem, env(safe-area-inset-left, 0));
+			min-height: 100dvh;
+			max-width: 32rem;
+			margin-inline: auto;
+		}
+
+		.app-head {
+			font-size: clamp(1.125rem, 4vw + 0.75rem, 1.375rem);
+			font-weight: 700;
+			margin: 0 0 1rem;
+			line-height: 1.25;
+		}
+
+		button[type="button"] {
+			min-height: 3rem;
+			min-width: 7rem;
+			padding: 0.65rem 1.25rem;
+			font-size: 1rem;
+			font-weight: 600;
+			border-radius: 0.5rem;
+			border: none;
+			background: #111827;
+			color: #fff;
+			cursor: pointer;
+			-webkit-tap-highlight-color: transparent;
+		}
+
+		button[type="button"]:active {
+			opacity: 0.88;
+		}
+
+		#webcam-container {
+			width: 100%;
+			margin-top: 1rem;
+			margin-bottom: 1rem;
+			border-radius: 0.75rem;
+			overflow: hidden;
+			background: #111;
+		}
+
+		#webcam-container canvas {
+			display: block;
+			width: 100%;
+			height: auto;
+			max-height: min(62vh, 28rem);
+			object-fit: contain;
+			margin-inline: auto;
+		}
+
+		.prediction-row {
+			margin-bottom: 1rem;
+			width: 100%;
+			max-width: 100%;
+		}
+
+		.prediction-meta {
+			display: flex;
+			justify-content: space-between;
+			align-items: baseline;
+			gap: 0.5rem;
+			margin-bottom: 0.35rem;
+			font-size: clamp(0.95rem, 2.8vw + 0.65rem, 1.0625rem);
+		}
+
+		.class-name {
+			font-weight: 600;
+		}
+
+		.class-probability {
+			font-variant-numeric: tabular-nums;
+			opacity: 0.85;
+		}
+
+		.progress-track {
+			height: max(11px, 0.42rem + 2.5vmin);
+			background: #e5e7eb;
+			border-radius: 9999px;
+			overflow: hidden;
+		}
+
+		.progress-fill {
+			height: 100%;
+			width: 0%;
+			border-radius: 9999px;
+			transition: width 0.1s ease-out;
+			min-width: 0;
+		}
+	</style>
+</head>
+<body>
+
+<p class="app-head">Teachable Machine Image Model</p>
 <button type="button" onclick="init()">Start</button>
 <div id="webcam-container"></div>
 <div id="label-container"></div>
@@ -52,6 +129,25 @@
 
 	let model, webcam, labelContainer, maxPredictions;
 
+	function computeWebcamSide() {
+		const pad = 48;
+		const layoutW =
+			window.visualViewport && window.visualViewport.width > 0
+				? window.visualViewport.width
+				: window.innerWidth;
+
+		let layoutH =
+			window.visualViewport && window.visualViewport.height > 0
+				? window.visualViewport.height
+				: window.innerHeight;
+
+		const byWidth = Math.max(224, Math.min(layoutW - pad | 0, 480));
+		const byHeight = Math.max(224, Math.min(((layoutH * 0.5) | 0), 480));
+		const side = Math.min(byWidth, byHeight);
+
+		return Math.max(224, side | 0);
+	}
+
 	// Load the image model and setup the webcam
 	async function init() {
 		const modelURL = URL + "model.json";
@@ -66,7 +162,8 @@
 
 		// Convenience function to setup a webcam
 		const flip = true; // whether to flip the webcam
-		webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
+		const webcamSide = computeWebcamSide();
+		webcam = new tmImage.Webcam(webcamSide, webcamSide, flip); // width, height, flip
 		await webcam.setup(); // request access to the webcam
 		await webcam.play();
 		window.requestAnimationFrame(loop);
@@ -129,3 +226,6 @@
 		}
 	}
 </script>
+
+</body>
+</html>
